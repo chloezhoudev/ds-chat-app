@@ -1,4 +1,5 @@
 import { useState } from "react"
+import ReactMarkdown from 'react-markdown'
 
 const endpoint = 'https://api.deepseek.com/chat/completions';
 
@@ -80,9 +81,11 @@ function App() {
     <button onClick={handleReply}>submit</button>
     {loading &&(<div>loading...</div>)}
     <div>{messages.map((msg, index) => (
-      <div key={index}>{msg.role}: {msg.content}</div>
+      <div key={index}>{msg.role}: 
+        <ReactMarkdown>{msg.content}</ReactMarkdown>
+      </div>
     ))}</div>
-    {reply && <div>assistant: {reply}</div>}
+    {reply && <div>assistant: <ReactMarkdown>{reply}</ReactMarkdown></div>}
     </>
   )
 }
