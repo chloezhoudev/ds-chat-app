@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import ReactMarkdown from 'react-markdown'
 
 import './App.css'
@@ -10,6 +10,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
+  const chatEndRef = useRef(null);
 
   const handleInput = (event) => {
     setText(event.target.value);
@@ -82,6 +83,10 @@ function App() {
       setLoading(false);
   }
 
+  useEffect(() => {
+    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, reply])
+
 return (
   <div className="app">
     <div className="chat-area">
@@ -98,6 +103,7 @@ return (
         </div>
       )}
       {loading && !reply && <div className="loading">思考中...</div>}
+      <div ref={chatEndRef}></div>
     </div>
     <div className="input-area">
       <input value={text} onChange={handleInput} onKeyDown={handleKeyDown} placeholder="输入你的问题..." />
