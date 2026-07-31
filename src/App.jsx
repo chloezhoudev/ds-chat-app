@@ -90,7 +90,7 @@ function App() {
               break;
             }
             const content = JSON.parse(json);
-            if (content.choices[0].delta.content === null) continue;
+            if (content.choices[0].delta.content == null) continue;
 
             fullReply += content.choices[0].delta.content;
             setReply(prev => prev + content.choices[0].delta.content);
