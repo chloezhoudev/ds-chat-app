@@ -40,7 +40,21 @@ function App() {
         body: JSON.stringify({
           messages: newMessages,
           model: 'deepseek-v4-flash',
-          stream: true
+          stream: true,
+          tools: [
+          {
+            type: "function",
+            function: {
+              name: "get_current_time",
+              description: "获取当前的日期和时间",
+              parameters: {
+                type: "object",
+                properties: {},
+                required: []
+              }
+            }
+          }
+        ]
         })
       });
 
