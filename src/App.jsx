@@ -83,17 +83,28 @@ function App() {
           const messages = buffer.split('\n\n');
           buffer = messages[messages.length - 1];
 
+          // delta.content 是 null → 思考阶段 → 跳过
+          // delta.tool_calls 存在 → 工具调用 → 需要处理
+          // delta.content 有值 → 正常回复 → 拼进 fullReply
           for (let i = 0; i < messages.length - 1; i++) {
-            const message = messages[i];
+            const message = messages[i]; // 完整的 message
             const json = message.slice(6);
             if (json === '[DONE]') {
               break;
             }
-            const content = JSON.parse(json);
-            if (content.choices[0].delta.content == null) continue;
-
-            fullReply += content.choices[0].delta.content;
-            setReply(prev => prev + content.choices[0].delta.content);
+            const parsed = JSON.parse(json);
+            const delta = parsed.choices[0].delta;
+            const text = delta.content;
+            // 1. 思考阶段 → 跳过
+            if (text === null) continue; // 思考过程是 null，tool calls 是 undefined
+            // 2. 工具调用 → 需要处理
+            if (!text && delta.tool_calls) {
+              console.log(delta.tool_calls);
+              continue; // 这里先写 continue，累积所有tool_calls消息
+            }
+            // 3. 正常回复 → 拼进 fullReply
+            fullReply += text;
+            setReply(prev => prev + text);
           }
         }
       }
