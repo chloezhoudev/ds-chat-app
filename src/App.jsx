@@ -98,7 +98,9 @@ function App() {
         }
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
+      if (fullReply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
+      }
       setReply('');
       setLoading(false);
     } catch { // error
