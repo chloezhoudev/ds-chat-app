@@ -24,10 +24,12 @@ function App() {
 
   const handleReply = async () => {
     if (!text.trim()) return;
-    const newMessages = [...messages, { role: 'user', content: text }];
-    setLoading(true);
-    setMessages(newMessages);
-    setText('');
+
+    try {
+      const newMessages = [...messages, { role: 'user', content: text }];
+      setLoading(true);
+      setMessages(newMessages);
+      setText('');
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -41,6 +43,10 @@ function App() {
           stream: true
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`请求失败: ${response.status}`);
+      }
 
       // 一段一段地读取数据
       const reader = response.body.getReader();
@@ -81,6 +87,11 @@ function App() {
       setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
       setReply('');
       setLoading(false);
+    } catch { // error
+      setLoading(false);
+      alert('请求失败，请重试');
+    }
+    
   }
 
   useEffect(() => {
