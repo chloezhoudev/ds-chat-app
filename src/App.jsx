@@ -5,32 +5,34 @@ import { sendChat } from './api'
 import './App.css'
 
 function App() {
-  const [reply, setReply] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [reply, setReply] = useState(''); // 模型当前正在回复的流
+  const [messages, setMessages] = useState([]); // 全部对话
+  const [text, setText] = useState(''); // user input
+  const [loading, setLoading] = useState(false); // 一次完整对话过程
   const chatEndRef = useRef(null);
 
   const handleReply = async () => {
-    if (!text.trim()) return;
+    if (!text.trim()) return; // 如果只输入空格或者没有任何输入，退出
 
-    try {
+    try { // try catch 放在最外层
       const newMessages = [...messages, { role: 'user', content: text }];
       setLoading(true);
       setMessages(newMessages);
-      setText('');
-      setReply('');
+      setText(''); // 清空 input 框
+      setReply(''); // 第二次进来，上一轮对话已经清空了，所以还是空字符串
 
-      const fullReply = await sendChat(newMessages, (text) => {
-        setReply(prev => prev + text);
-      });
+      const fullReply = await sendChat(
+        newMessages,
+        (text) => setReply(prev => prev + text),
+        () => setReply('')
+      );
 
       if (fullReply) {
         setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
       }
 
-      setReply('');
-      setLoading(false);
+      setReply(''); // 内容已经转移到 messages 里了
+      setLoading(false); // 一次完整对话结束的 flag
     } catch {
       setLoading(false);
       alert('请求失败，请重试');

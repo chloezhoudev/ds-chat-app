@@ -62,9 +62,11 @@ async function readStream(response, onToken) {
           if (toolCall.function?.arguments) toolArgs += toolCall.function.arguments;
           continue;
         }
-
+        // 模型回复的内容在这里
         fullReply += text;
-        onToken(text);
+        onToken(text); // 如果这里只有一条完整的 SSE 消息，就只调用一次 setReply，但如果有多条，就会累积多个 setReply，然后
+        // 在 for 循环结束后，再次 await read() 的时候，进行 batch 更新，所以每次 await 的间歇，都会调用一次 setReply 更新页面，
+        // 效果就是一个字一个字蹦出来
       }
     }
   }
@@ -72,7 +74,7 @@ async function readStream(response, onToken) {
   return { toolId, toolName, toolArgs, fullReply };
 }
 
-async function sendChat(messages, onToken) {
+async function sendChat(messages, onToken, onClear) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -121,6 +123,8 @@ async function sendChat(messages, onToken) {
         stream: true
       })
     });
+
+    onClear();
 
     const finalResult = await readStream(toolResponse, onToken);
     return finalResult.fullReply;
