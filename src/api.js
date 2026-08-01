@@ -123,7 +123,7 @@ async function sendChat(messages, onToken, onClear) {
         stream: true
       })
     });
-
+    // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
     onClear();
 
     const finalResult = await readStream(toolResponse, onToken);
