@@ -17,21 +17,26 @@ function App() {
   const [messages, setMessages] = useState([]); // 全部对话
   const [text, setText] = useState(''); // user input
   const [loading, setLoading] = useState(false); // 一次完整对话过程
+  const [error, setError] = useState(null);
   const chatEndRef = useRef(null);
   const [, startTransition] = useTransition();
 
   const handleReply = async () => {
-    if (!text.trim()) return; // 如果只输入空格或者没有任何输入，退出
+    if (!text.trim()) return;
+    const newMessages = [...messages, { role: 'user', content: text }];
+    setMessages(newMessages);
+    setText('');
+    await sendAndProcess(newMessages);
+  };
 
-    try { // try catch 放在最外层
-      const newMessages = [...messages, { role: 'user', content: text }];
+  const sendAndProcess = async (msgs) => {
+    try {
       setLoading(true);
-      setMessages(newMessages);
-      setText(''); // 清空 input 框
-      setReply(''); // 第二次进来，上一轮对话已经清空了，所以还是空字符串
+      setError(null);
+      setReply('');
 
       const fullReply = await sendChat(
-        newMessages,
+        msgs,
         (text) => startTransition(() => setReply(prev => prev + text)),
         () => setReply('')
       );
@@ -40,13 +45,13 @@ function App() {
         setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
       }
 
-      setReply(''); // 内容已经转移到 messages 里了
-      setLoading(false); // 一次完整对话结束的 flag
-    } catch {
+      setReply('');
       setLoading(false);
-      alert('请求失败，请重试');
+    } catch (error) {
+      setLoading(false);
+      setError(error);
     }
-  }
+  };
 
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -68,6 +73,13 @@ function App() {
           </div>
         )}
         {loading && !reply && <div className="loading">思考中...</div>}
+        {error && (
+          <div className="message message-error">
+            <div className="role-label">错误</div>
+            <div>请求失败，请重试</div>
+            <button onClick={() => sendAndProcess(messages)}>重试</button>
+          </div>
+        )}
         <div ref={chatEndRef}></div>
       </div>
       <div className="input-area">
