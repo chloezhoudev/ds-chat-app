@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useTransition } from "react"
 import ReactMarkdown from 'react-markdown'
 import { sendChat } from './api'
 
 import './App.css'
+
+// React.memo: 
+// 场景1 - 只打字时，messages 和 reply 都不变，SlowMarkdown 全部跳过
+// 场景2 - 流式输出时，messages 不变也跳过，只有 reply 每次变化会重渲染
+// 剩余问题：场景2 中 setReply 频繁触发 reply 的 SlowMarkdown 重渲染 → 用 useTransition 解决
+const MemoMarkdown = React.memo(function MemoMarkdown({ children }) {
+  return <ReactMarkdown>{children}</ReactMarkdown>;
+});
 
 function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
@@ -10,6 +18,7 @@ function App() {
   const [text, setText] = useState(''); // user input
   const [loading, setLoading] = useState(false); // 一次完整对话过程
   const chatEndRef = useRef(null);
+  const [, startTransition] = useTransition();
 
   const handleReply = async () => {
     if (!text.trim()) return; // 如果只输入空格或者没有任何输入，退出
@@ -23,7 +32,7 @@ function App() {
 
       const fullReply = await sendChat(
         newMessages,
-        (text) => setReply(prev => prev + text),
+        (text) => startTransition(() => setReply(prev => prev + text)),
         () => setReply('')
       );
 
@@ -49,13 +58,13 @@ function App() {
         {messages.map((msg, index) => (
           <div key={index} className={`message message-${msg.role}`}>
             <div className="role-label">{msg.role}</div>
-            <ReactMarkdown>{msg.content}</ReactMarkdown>
+            <MemoMarkdown>{msg.content}</MemoMarkdown>
           </div>
         ))}
         {reply && (
           <div className="message message-assistant">
             <div className="role-label">assistant</div>
-            <ReactMarkdown>{reply}</ReactMarkdown>
+            <MemoMarkdown>{reply}</MemoMarkdown>
           </div>
         )}
         {loading && !reply && <div className="loading">思考中...</div>}
