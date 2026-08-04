@@ -36,7 +36,7 @@ function App() {
       setError(null);
       setReply(''); // TODO: 流中断后重试时半截内容会先消失再重新加载，体验待优化
 
-      const fullReply = await sendChat(
+      const { fullReply, fullThinking } = await sendChat(
         msgs,
         (text) => startTransition(() => setReply(prev => prev + text)),
         (thinking) => setThinking(prev => prev + thinking),
@@ -44,7 +44,7 @@ function App() {
       );
 
       if (fullReply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: fullReply, thinking: fullThinking }]);
       }
 
       setReply('');
@@ -69,17 +69,18 @@ function App() {
         {messages.map((msg, index) => (
           <div key={index} className={`message message-${msg.role}`}>
             <div className="role-label">{msg.role}</div>
+            {msg.thinking && <div className="loading">{msg.thinking}</div>}
             <MemoMarkdown>{msg.content}</MemoMarkdown>
           </div>
         ))}
+        {loading && thinking && <div className="loading">{thinking}</div>}
+        {loading && !reply && !thinking && <div className="loading">思考中...</div>}
         {reply && (
           <div className="message message-assistant">
             <div className="role-label">assistant</div>
             <MemoMarkdown>{reply}</MemoMarkdown>
           </div>
         )}
-        {loading && thinking && !reply && <div className="loading">{thinking}</div>}
-        {loading && !reply && !thinking && <div className="loading">思考中...</div>}
         {error && (
           <div className="message message-error">
             <div className="role-label">错误</div>

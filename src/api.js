@@ -45,6 +45,7 @@ async function readStream(response, onToken, onThinking) {
   const decoder = new TextDecoder();
   let buffer = '';
   let fullReply = '';
+  let fullThinking = '';
   let toolId = '';
   let toolName = '';
   let toolArgs = '';
@@ -73,6 +74,7 @@ async function readStream(response, onToken, onThinking) {
 
         if (text === null) {
           if (thinking) {
+            fullThinking += thinking;
             onThinking(thinking);
           }
           continue;
@@ -94,7 +96,7 @@ async function readStream(response, onToken, onThinking) {
     }
   }
 
-  return { toolId, toolName, toolArgs, fullReply };
+  return { toolId, toolName, toolArgs, fullReply, fullThinking };
 }
 
 async function sendChat(messages, onToken, onThinking, onClear) {
@@ -112,25 +114,25 @@ async function sendChat(messages, onToken, onThinking, onClear) {
     })
   });
 
-  const result = await readStream(response, onToken, onThinking);
+  const { toolId, toolName, toolArgs, fullReply, fullThinking } = await readStream(response, onToken, onThinking);
 
-  if (result.toolName) {
+  if (toolName) {
     const toolResult = get_current_time();
 
     const toolMessages = [...messages, {
       role: "assistant",
       content: null,
       tool_calls: [{
-        id: result.toolId,
+        id: toolId,
         type: "function",
         function: {
-          name: result.toolName,
-          arguments: result.toolArgs
+          name: toolName,
+          arguments: toolArgs
         }
       }]
     }, {
       role: "tool",
-      tool_call_id: result.toolId,
+      tool_call_id: toolId,
       content: toolResult
     }];
 
@@ -149,11 +151,11 @@ async function sendChat(messages, onToken, onThinking, onClear) {
     // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
     onClear();
 
-    const finalResult = await readStream(toolResponse, onToken);
-    return finalResult.fullReply;
+    const finalResult = await readStream(toolResponse, onToken, onThinking);
+    return { fullReply: finalResult.fullReply, fullThinking: finalResult.fullThinking };
   }
 
-  return result.fullReply;
+  return { fullReply, fullThinking };
 }
 
 export { sendChat };
