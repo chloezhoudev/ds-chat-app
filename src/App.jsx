@@ -67,11 +67,13 @@ function App() {
     <div className="app">
       <div className="chat-area">
         {messages.map((msg, index) => (
-          <div key={index} className={`message message-${msg.role}`}>
-            <div className="role-label">{msg.role}</div>
+          <React.Fragment key={index}>
             {msg.thinking && <div className="loading">{msg.thinking}</div>}
-            <MemoMarkdown>{msg.content}</MemoMarkdown>
-          </div>
+            <div className={`message message-${msg.role}`}>
+              <div className="role-label">{msg.role}</div>
+              <MemoMarkdown>{msg.content}</MemoMarkdown>
+            </div>
+          </React.Fragment>
         ))}
         {loading && thinking && <div className="loading">{thinking}</div>}
         {loading && !reply && !thinking && <div className="loading">思考中...</div>}

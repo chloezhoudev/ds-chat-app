@@ -111,3 +111,13 @@ body {
 .message-error button:hover {
   background: #aa0000;
 }
+
+.thinking-block {
+  margin: 8px 20px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #888;
+  font-style: italic;
+  border-left: 3px solid #ddd;
+  background: transparent;
+}
