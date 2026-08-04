@@ -19,7 +19,24 @@ function get_current_time() {
   return new Date().toLocaleString();
 }
 
-async function readStream(response, onToken) {
+async function readStream(response, onToken, onThinking) {
+  // === 边界情况汇总 ===
+  // 1. delta.content 的三种值：
+  //    - null: 思考阶段（reasoning_content 有值）→ 跳过，不拼进 fullReply
+  //    - undefined: 工具调用阶段（delta.tool_calls 有值）→ 累积工具信息
+  //    - 有值（字符串）: 正常回复 → 拼进 fullReply
+  //
+  // 2. reasoning_content 第一条是空字符串 ""（falsy），后续才有内容
+  //    所以判断思考阶段靠 text === null，不靠 thinking 是否有值
+  //
+  // 3. data: [DONE] 不是 JSON，不能直接 JSON.parse，要单独判断
+  //
+  // 4. 一次 read() 可能拿到半条/一条/多条 SSE 消息（TCP 不管 SSE 边界）
+  //    用 buffer + split('\n\n') 处理
+  //
+  // 5. 中文字节可能被切断，TextDecoder 加 { stream: true } 解决
+  //
+  // 6. fetch 对 401/500 不抛错（正常 resolve），需要手动检查 response.ok
   if (!response.ok) {
     throw new Error(`请求失败: ${response.status}`);
   }
@@ -52,8 +69,14 @@ async function readStream(response, onToken) {
         const parsed = JSON.parse(json);
         const delta = parsed.choices[0].delta;
         const text = delta.content;
+        const thinking = delta.reasoning_content;
 
-        if (text === null) continue;
+        if (text === null) {
+          if (thinking) {
+            onThinking(thinking);
+          }
+          continue;
+        };
 
         if (!text && delta.tool_calls) {
           const toolCall = delta.tool_calls[0];
@@ -74,7 +97,7 @@ async function readStream(response, onToken) {
   return { toolId, toolName, toolArgs, fullReply };
 }
 
-async function sendChat(messages, onToken, onClear) {
+async function sendChat(messages, onToken, onThinking, onClear) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -89,7 +112,7 @@ async function sendChat(messages, onToken, onClear) {
     })
   });
 
-  const result = await readStream(response, onToken);
+  const result = await readStream(response, onToken, onThinking);
 
   if (result.toolName) {
     const toolResult = get_current_time();

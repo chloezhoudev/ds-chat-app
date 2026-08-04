@@ -14,6 +14,7 @@ const MemoMarkdown = React.memo(function MemoMarkdown({ children }) {
 
 function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
+  const [thinking, setThinking] = useState(''); // 模型的思考
   const [messages, setMessages] = useState([]); // 全部对话
   const [text, setText] = useState(''); // user input
   const [loading, setLoading] = useState(false); // 一次完整对话过程
@@ -33,11 +34,12 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-      setReply('');
+      setReply(''); // TODO: 流中断后重试时半截内容会先消失再重新加载，体验待优化
 
       const fullReply = await sendChat(
         msgs,
         (text) => startTransition(() => setReply(prev => prev + text)),
+        (thinking) => setThinking(prev => prev + thinking),
         () => setReply('')
       );
 
@@ -46,8 +48,10 @@ function App() {
       }
 
       setReply('');
+      setThinking('');
       setLoading(false);
     } catch (error) {
+      console.error('错误详情:', error);
       setLoading(false);
       setError(error);
     }
@@ -55,7 +59,9 @@ function App() {
 
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, reply])
+  }, [messages, reply]);
+
+  console.log('render:', { loading, thinking: thinking.length, reply: reply.length });
 
   return (
     <div className="app">
@@ -72,7 +78,8 @@ function App() {
             <MemoMarkdown>{reply}</MemoMarkdown>
           </div>
         )}
-        {loading && !reply && <div className="loading">思考中...</div>}
+        {loading && thinking && !reply && <div className="loading">{thinking}</div>}
+        {loading && !reply && !thinking && <div className="loading">思考中...</div>}
         {error && (
           <div className="message message-error">
             <div className="role-label">错误</div>
