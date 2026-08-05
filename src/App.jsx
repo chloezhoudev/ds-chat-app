@@ -61,7 +61,7 @@ function App() {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [messages, reply]);
 
-  console.log('render:', { loading, thinking: thinking.length, reply: reply.length });
+  // console.log('render:', { loading, thinking: thinking.length, reply: reply.length });
 
   return (
     <div className="app">

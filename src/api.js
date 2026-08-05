@@ -12,8 +12,38 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "calculate",
+      description: "计算数学表达式，比如加减乘除",
+      parameters: {
+        type: "object",
+        properties: {
+          expression: {
+            type: "string",
+            description: "数学表达式，比如 2+3*4"
+          }
+        },
+        required: ["expression"]
+      }
+    }
   }
 ];
+
+const toolFunctions = {
+  get_current_time: get_current_time,
+  calculate: calculate
+};
+
+function calculate(args) {
+  try {
+    return String(eval(args.expression));
+  } catch {
+    return '计算错误';
+  }
+}
 
 function get_current_time() {
   return new Date().toLocaleString();
@@ -100,6 +130,7 @@ async function readStream(response, onToken, onThinking) {
 }
 
 async function sendChat(messages, onToken, onThinking, onClear) {
+  // 1. 发请求
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -114,25 +145,29 @@ async function sendChat(messages, onToken, onThinking, onClear) {
     })
   });
 
-  const { toolId, toolName, toolArgs, fullReply, fullThinking } = await readStream(response, onToken, onThinking);
-
-  if (toolName) {
-    const toolResult = get_current_time();
+  // 2. 读流
+  let result = await readStream(response, onToken, onThinking);
+  // 3. 判断是否需要调用工具
+  while (result.toolName) {
+    const fn = toolFunctions[result.toolName];
+    console.log('参数是：', result.toolArgs);
+    const args = JSON.parse(result.toolArgs);
+    const toolResult = fn(args);
 
     const toolMessages = [...messages, {
       role: "assistant",
       content: null,
       tool_calls: [{
-        id: toolId,
+        id: result.toolId,
         type: "function",
         function: {
-          name: toolName,
-          arguments: toolArgs
+          name: result.toolName,
+          arguments: result.toolArgs
         }
       }]
     }, {
       role: "tool",
-      tool_call_id: toolId,
+      tool_call_id: result.toolId,
       content: toolResult
     }];
 
@@ -151,11 +186,11 @@ async function sendChat(messages, onToken, onThinking, onClear) {
     // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
     onClear();
 
-    const finalResult = await readStream(toolResponse, onToken, onThinking);
-    return { fullReply: finalResult.fullReply, fullThinking: finalResult.fullThinking };
+    result = await readStream(toolResponse, onToken, onThinking);
+    messages = toolMessages;
   }
 
-  return { fullReply, fullThinking };
+  return { fullReply: result.fullReply, fullThinking: result.fullThinking };
 }
 
 export { sendChat };
