@@ -109,7 +109,7 @@ async function readStream(response, onToken, onThinking) {
           }
           continue;
         };
-
+        // TODO: 支持一次响应中同时调用多个工具（按 index 分开存储多个 toolId/toolName/toolArgs）
         if (!text && delta.tool_calls) {
           const toolCall = delta.tool_calls[0];
           if (toolCall.id) toolId = toolCall.id;
