@@ -101,24 +101,28 @@ async function readStream(response, onToken, onThinking) {
         const delta = parsed.choices[0].delta;
         const text = delta.content;
         const thinking = delta.reasoning_content;
-
+        // 1. 思考阶段
         if (text === null) {
           if (thinking) {
+            // console.log('SSE [思考]:', thinking);
             fullThinking += thinking;
             onThinking(thinking);
           }
           continue;
         };
+        // 2. 工具调用
         // TODO: 支持一次响应中同时调用多个工具（按 index 分开存储多个 toolId/toolName/toolArgs）
         if (!text && delta.tool_calls) {
+          // console.log('SSE [工具调用]:', JSON.stringify(delta.tool_calls));
           const toolCall = delta.tool_calls[0];
           if (toolCall.id) toolId = toolCall.id;
           if (toolCall.function?.name) toolName = toolCall.function.name;
           if (toolCall.function?.arguments) toolArgs += toolCall.function.arguments;
           continue;
         }
-        // 模型回复的内容在这里
+        // 3. 正常回复
         fullReply += text;
+        // console.log('SSE [回复]:', text);
         onToken(text); // 如果这里只有一条完整的 SSE 消息，就只调用一次 setReply，但如果有多条，就会累积多个 setReply，然后
         // 在 for 循环结束后，再次 await read() 的时候，进行 batch 更新，所以每次 await 的间歇，都会调用一次 setReply 更新页面，
         // 效果就是一个字一个字蹦出来
@@ -144,11 +148,14 @@ async function sendChat(messages, onToken, onThinking, onClear) {
       tools
     })
   });
+  // let round = 1;
+  // console.log(`=== 第 ${round} 轮流 ===`);
 
   // 2. 读流
   let result = await readStream(response, onToken, onThinking);
   // 3. 判断是否需要调用工具
   while (result.toolName) {
+    // round++;
     const fn = toolFunctions[result.toolName];
     console.log('参数是：', result.toolArgs);
     const args = JSON.parse(result.toolArgs);
@@ -180,12 +187,13 @@ async function sendChat(messages, onToken, onThinking, onClear) {
       body: JSON.stringify({
         messages: toolMessages,
         model: 'deepseek-v4-flash',
-        stream: true
+        stream: true,
+        tools
       })
     });
     // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
     onClear();
-
+    // console.log(`=== 第 ${round} 轮流 ===`);
     result = await readStream(toolResponse, onToken, onThinking);
     messages = toolMessages;
   }
