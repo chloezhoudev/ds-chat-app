@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import { sendChat } from './api'
 
 import './App.css'
+import InputBar from "./InputBar";
 
 // React.memo: 
 // 场景1 - 只打字时，messages 和 reply 都不变，SlowMarkdown 全部跳过
@@ -16,17 +17,14 @@ function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
   const [thinking, setThinking] = useState(''); // 模型的思考
   const [messages, setMessages] = useState([]); // 全部对话
-  const [text, setText] = useState(''); // user input
   const [loading, setLoading] = useState(false); // 一次完整对话过程
   const [error, setError] = useState(null);
   const chatEndRef = useRef(null);
   const [, startTransition] = useTransition();
 
-  const handleReply = async () => {
-    if (!text.trim()) return;
+  const handleReply = async (text) => {
     const newMessages = [...messages, { role: 'user', content: text }];
     setMessages(newMessages);
-    setText('');
     await sendAndProcess(newMessages);
   };
 
@@ -92,10 +90,7 @@ function App() {
         )}
         <div ref={chatEndRef}></div>
       </div>
-      <div className="input-area">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleReply()} placeholder="输入你的问题..." />
-        <button onClick={handleReply} disabled={loading}>发送</button>
-      </div>
+      <InputBar loading={loading} onSubmit={(text) => handleReply(text)} />
     </div>
   )
 }
