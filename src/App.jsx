@@ -11,7 +11,10 @@ import MessageList from "./MessageList"
 function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
   const [thinking, setThinking] = useState(''); // 模型的思考
-  const [messages, setMessages] = useState([]); // 全部对话
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('messages');
+    return saved ? JSON.parse(saved) : [];
+  }); // 全部对话 // 找不到key的时候返回null
   const [loading, setLoading] = useState(false); // 一次完整对话过程
   const [error, setError] = useState(null);
   const chatEndRef = useRef(null);
@@ -53,6 +56,10 @@ function App() {
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [messages, reply]);
+
+  useEffect(() => {
+    localStorage.setItem('messages', JSON.stringify(messages));
+  }, [messages])
 
   // console.log('render:', { loading, thinking: thinking.length, reply: reply.length });
 
