@@ -1,17 +1,12 @@
-import React, { useState, useRef, useEffect, useTransition } from "react"
-import ReactMarkdown from 'react-markdown'
-import { sendChat } from './api'
+import { useState, useRef, useEffect, useTransition } from "react"
+
+import InputBar from "./InputBar"
+import MemoMarkdown from "./MemoMarkdown"
 
 import './App.css'
-import InputBar from "./InputBar";
+import { sendChat } from './api'
+import MessageList from "./MessageList"
 
-// React.memo: 
-// 场景1 - 只打字时，messages 和 reply 都不变，SlowMarkdown 全部跳过
-// 场景2 - 流式输出时，messages 不变也跳过，只有 reply 每次变化会重渲染
-// 剩余问题：场景2 中 setReply 频繁触发 reply 的 SlowMarkdown 重渲染 → 用 useTransition 解决
-const MemoMarkdown = React.memo(function MemoMarkdown({ children }) {
-  return <ReactMarkdown>{children}</ReactMarkdown>;
-});
 
 function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
@@ -64,15 +59,7 @@ function App() {
   return (
     <div className="app">
       <div className="chat-area">
-        {messages.map((msg, index) => (
-          <React.Fragment key={index}>
-            {msg.thinking && <div className="loading">{msg.thinking}</div>}
-            <div className={`message message-${msg.role}`}>
-              <div className="role-label">{msg.role}</div>
-              <MemoMarkdown>{msg.content}</MemoMarkdown>
-            </div>
-          </React.Fragment>
-        ))}
+        <MessageList messages={messages} />
         {loading && thinking && <div className="loading">{thinking}</div>}
         {loading && !reply && !thinking && <div className="loading">思考中...</div>}
         {reply && (
