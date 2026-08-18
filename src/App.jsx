@@ -7,6 +7,11 @@ import './App.css'
 import { sendChat } from './api'
 import MessageList from "./MessageList"
 
+const toolDisplayNames = {
+  get_current_time: '获取当前时间',
+  calculate: '计算数学表达式'
+};
+
 
 function App() {
   const [reply, setReply] = useState(''); // 模型当前正在回复的流
@@ -16,6 +21,7 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   }); // 全部对话 // 找不到key的时候返回null
   const [loading, setLoading] = useState(false); // 一次完整对话过程
+  const [activeTools, setActiveTools] = useState([]);
   const [error, setError] = useState(null);
   const chatEndRef = useRef(null);
   const [, startTransition] = useTransition();
@@ -36,7 +42,8 @@ function App() {
         msgs,
         (text) => startTransition(() => setReply(prev => prev + text)),
         (thinking) => setThinking(prev => prev + thinking),
-        () => setReply('')
+        () => { setReply(''); setActiveTools([]); },
+        (tools) => setActiveTools(tools)
       );
 
       if (fullReply) {
@@ -69,6 +76,13 @@ function App() {
         <MessageList messages={messages} />
         {loading && thinking && <div className="loading">{thinking}</div>}
         {loading && !reply && !thinking && <div className="loading">思考中...</div>}
+        {loading && activeTools.length > 0 && (
+          activeTools.map((tool, index) => (
+            <div key={index} className="tool-status">
+              🔧 正在{toolDisplayNames[tool.name] || tool.name}...
+            </div>
+          ))
+        )}
         {reply && (
           <div className="message message-assistant">
             <div className="role-label">assistant</div>

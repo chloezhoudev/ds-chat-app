@@ -145,7 +145,7 @@ function fetchChat(messages, includeTools = true) {
   });
 }
 
-async function sendChat(messages, onToken, onThinking, onClear) {
+async function sendChat(messages, onToken, onThinking, onClear, onToolCall) {
   // 1. 发请求
   const response = await fetchChat(messages);
 
@@ -154,6 +154,8 @@ async function sendChat(messages, onToken, onThinking, onClear) {
 
   // 3. 判断是否需要调用工具
   while (toolCalls.length > 0) {
+    onToolCall(toolCalls);
+
     const toolMessages = [...messages, {
       role: "assistant",
       content: null,
@@ -183,12 +185,12 @@ async function sendChat(messages, onToken, onThinking, onClear) {
 
     const toolResponse = await fetchChat(toolMessages);
 
-    // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
+    await new Promise(resolve => setTimeout(resolve, 3000));
     onClear();
 
     const result = await readStream(toolResponse, onToken, onThinking);
     fullReply = result.fullReply;
-    fullThinking = result.fullThinking;
+    fullThinking += result.fullThinking;
     toolCalls = result.toolCalls;
     messages = toolMessages;
   }
