@@ -32,10 +32,7 @@ const tools = [
   }
 ];
 
-const toolFunctions = {
-  get_current_time: get_current_time,
-  calculate: calculate
-};
+const toolFunctions = { get_current_time, calculate };
 
 function calculate(args) {
   try {
@@ -76,9 +73,7 @@ async function readStream(response, onToken, onThinking) {
   let buffer = '';
   let fullReply = '';
   let fullThinking = '';
-  let toolId = '';
-  let toolName = '';
-  let toolArgs = '';
+  const toolCalls = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -104,25 +99,26 @@ async function readStream(response, onToken, onThinking) {
         // 1. 思考阶段
         if (text === null) {
           if (thinking) {
-            // console.log('SSE [思考]:', thinking);
             fullThinking += thinking;
             onThinking(thinking);
           }
           continue;
         };
         // 2. 工具调用
-        // TODO: 支持一次响应中同时调用多个工具（按 index 分开存储多个 toolId/toolName/toolArgs）
         if (!text && delta.tool_calls) {
-          // console.log('SSE [工具调用]:', JSON.stringify(delta.tool_calls));
           const toolCall = delta.tool_calls[0];
-          if (toolCall.id) toolId = toolCall.id;
-          if (toolCall.function?.name) toolName = toolCall.function.name;
-          if (toolCall.function?.arguments) toolArgs += toolCall.function.arguments;
+          const idx = toolCall.index;
+          if (toolCalls[idx] === undefined) {
+            toolCalls[idx] = {};
+            toolCalls[idx].args = '';
+          }
+          if (toolCall.id) toolCalls[idx].id = toolCall.id;
+          if (toolCall.function?.name) toolCalls[idx].name = toolCall.function.name;
+          if (toolCall.function?.arguments) toolCalls[idx].args += toolCall.function.arguments;
           continue;
         }
         // 3. 正常回复
         fullReply += text;
-        // console.log('SSE [回复]:', text);
         onToken(text); // 如果这里只有一条完整的 SSE 消息，就只调用一次 setReply，但如果有多条，就会累积多个 setReply，然后
         // 在 for 循环结束后，再次 await read() 的时候，进行 batch 更新，所以每次 await 的间歇，都会调用一次 setReply 更新页面，
         // 效果就是一个字一个字蹦出来
@@ -130,12 +126,11 @@ async function readStream(response, onToken, onThinking) {
     }
   }
 
-  return { toolId, toolName, toolArgs, fullReply, fullThinking };
+  return { toolCalls, fullReply, fullThinking };
 }
 
-async function sendChat(messages, onToken, onThinking, onClear) {
-  // 1. 发请求
-  const response = await fetch(endpoint, {
+function fetchChat(messages, includeTools = true) {
+  return fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`,
@@ -145,60 +140,60 @@ async function sendChat(messages, onToken, onThinking, onClear) {
       messages,
       model: 'deepseek-v4-flash',
       stream: true,
-      tools
+      ...(includeTools && { tools })
     })
   });
-  // let round = 1;
-  // console.log(`=== 第 ${round} 轮流 ===`);
+}
+
+async function sendChat(messages, onToken, onThinking, onClear) {
+  // 1. 发请求
+  const response = await fetchChat(messages);
 
   // 2. 读流
-  let result = await readStream(response, onToken, onThinking);
-  // 3. 判断是否需要调用工具
-  while (result.toolName) {
-    // round++;
-    const fn = toolFunctions[result.toolName];
-    console.log('参数是：', result.toolArgs);
-    const args = JSON.parse(result.toolArgs);
-    const toolResult = fn(args);
+  let { toolCalls, fullReply, fullThinking } = await readStream(response, onToken, onThinking);
 
+  // 3. 判断是否需要调用工具
+  while (toolCalls.length > 0) {
     const toolMessages = [...messages, {
       role: "assistant",
       content: null,
-      tool_calls: [{
-        id: result.toolId,
+      tool_calls: toolCalls.map(tool => ({
+        id: tool.id,
         type: "function",
         function: {
-          name: result.toolName,
-          arguments: result.toolArgs
+          name: tool.name,
+          arguments: tool.args
         }
-      }]
-    }, {
-      role: "tool",
-      tool_call_id: result.toolId,
-      content: toolResult
+      }))
     }];
 
-    const toolResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`,
-        'Content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        messages: toolMessages,
-        model: 'deepseek-v4-flash',
-        stream: true,
-        tools
-      })
+    toolCalls.forEach(tool => {
+      const fn = toolFunctions[tool.name];
+      const args = JSON.parse(tool.args);
+      const toolResult = fn(args);
+
+      const toolMessage = {
+        role: "tool",
+        tool_call_id: tool.id,
+        content: toolResult
+      }
+
+      toolMessages.push(toolMessage);
     });
+
+    const toolResponse = await fetchChat(toolMessages);
+
     // TODO: 工具调用可视化 - 显示"🔧 正在获取当前时间..."提示
     onClear();
-    // console.log(`=== 第 ${round} 轮流 ===`);
-    result = await readStream(toolResponse, onToken, onThinking);
+
+    const result = await readStream(toolResponse, onToken, onThinking);
+    fullReply = result.fullReply;
+    fullThinking = result.fullThinking;
+    toolCalls = result.toolCalls;
     messages = toolMessages;
   }
 
-  return { fullReply: result.fullReply, fullThinking: result.fullThinking };
+  return { fullReply, fullThinking };
 }
 
 export { sendChat };
